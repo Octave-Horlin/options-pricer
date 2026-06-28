@@ -36,7 +36,7 @@ La parité call-put $C - P = S - Ke^{-rT}$ est vérifiée analytiquement (erreur
 
 Chaque trajectoire suit le mouvement brownien géométrique (GBM) sous $\mathbb{Q}$ :
 
-$$S_T = S_0 \exp\!\left[\left(r - \frac{\sigma^2}{2}\right)T + \sigma\sqrt{T}\,Z\right], \quad Z \sim \mathcal{N}(0,1)$$
+$$S_T = S_0 \exp\!\left[\left(r - \frac{\sigma^2}{2}\right)T + \sigma\sqrt{T}\; Z\right], \quad Z \sim \mathcal{N}(0,1)$$
 
 Le prix est estimé par $\hat{C} = e^{-rT}\,\mathbb{E}^{\mathbb{Q}}[\max(S_T - K, 0)]$. L'erreur standard décroît en $1/\sqrt{N}$ (théorème central limite), vérifiée empiriquement par régression log-log.
 
