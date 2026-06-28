@@ -94,7 +94,7 @@ Gamma et Vega ont la même forme de cloche centrée ATM : ce sont les régions o
 
 ![Theta vs Maturité](figures/04_theta_vs_maturity.png)
 
-L'accélération de l'érosion temporelle à l'approche de la maturité ($T \to 0$) est caractéristique du terme $1/(2\sqrt{T})$ dans la formule du Theta. Un acheteur d'option supporte ce coût quotidien en échange de la convexité (Gamma positif) : c'est le fondement de la relation $\text{P\&L} \approx \frac{1}{2}\Gamma(\Delta S)^2 + \Theta\,\Delta t$.
+L'accélération de l'érosion temporelle à l'approche de la maturité ($T \to 0$) est caractéristique du terme $1/(2\sqrt{T})$ dans la formule du Theta. Un acheteur d'option supporte ce coût quotidien en échange de la convexité (Gamma positif) : c'est le fondement de la relation $\text{PnL} \approx \frac{1}{2}\Gamma(\Delta S)^2 + \Theta\,\Delta t$.
 
 ### 5. Convergence Monte Carlo
 
