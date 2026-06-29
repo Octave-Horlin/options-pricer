@@ -28,8 +28,8 @@ La parité call-put $C - P = S - Ke^{-rT}$ est vérifiée analytiquement (erreur
 |-------|---------------|----------------|
 | $\Delta$ | $N(d_1)$ | Exposition directionnelle au sous-jacent |
 | $\Gamma$ | $n(d_1) / (S\sigma\sqrt{T})$ | Convexité — vitesse de variation du delta |
-| $\mathcal{V}$ | $S\,n(d_1)\sqrt{T} / 100$ | Sensibilité à la volatilité implicite (+1 pt) |
-| $\Theta$ | $\left[-\frac{S\,n(d_1)\sigma}{2\sqrt{T}} - rKe^{-rT}N(d_2)\right] / 365$ | Érosion temporelle par jour |
+| $\mathcal{V}$ | $S n(d_1)\sqrt{T} / 100$ | Sensibilité à la volatilité implicite (+1 pt) |
+| $\Theta$ | $\left[-\frac{S n(d_1)\sigma}{2\sqrt{T}} - rKe^{-rT}N(d_2)\right] / 365$ | Érosion temporelle par jour |
 | $\rho$ | $KTe^{-rT}N(d_2) / 100$ | Sensibilité au taux sans risque (+1 pt) |
 
 ### Simulation Monte Carlo
@@ -38,7 +38,7 @@ Chaque trajectoire suit le mouvement brownien géométrique (GBM) sous $\mathbb{
 
 $$S_T = S_0 \exp\!\left[\left(r - \frac{\sigma^2}{2}\right)T + \sigma\sqrt{T} Z\right], \quad Z \sim \mathcal{N}(0,1)$$
 
-Le prix est estimé par $\hat{C} = e^{-rT}\,\mathbb{E}^{\mathbb{Q}}[\max(S_T - K, 0)]$. L'erreur standard décroît en $1/\sqrt{N}$ (théorème central limite), vérifiée empiriquement par régression log-log.
+Le prix est estimé par $\hat{C} = e^{-rT} \mathbb{E}^{\mathbb{Q}}[\max(S_T - K, 0)]$. L'erreur standard décroît en $1/\sqrt{N}$ (théorème central limite), vérifiée empiriquement par régression log-log.
 
 ---
 
@@ -94,7 +94,7 @@ Gamma et Vega ont la même forme de cloche centrée ATM : ce sont les régions o
 
 ![Theta vs Maturité](figures/04_theta_vs_maturity.png)
 
-L'accélération de l'érosion temporelle à l'approche de la maturité ($T \to 0$) est caractéristique du terme $1/(2\sqrt{T})$ dans la formule du Theta. Un acheteur d'option supporte ce coût quotidien en échange de la convexité (Gamma positif) : c'est le fondement de la relation $\text{PnL} \approx \frac{1}{2}\Gamma(\Delta S)^2 + \Theta\,\Delta t$.
+L'accélération de l'érosion temporelle à l'approche de la maturité ($T \to 0$) est caractéristique du terme $1/(2\sqrt{T})$ dans la formule du Theta. Un acheteur d'option supporte ce coût quotidien en échange de la convexité (Gamma positif) : c'est le fondement de la relation $\text{PnL} \approx \frac{1}{2}\Gamma(\Delta S)^2 + \Theta \Delta t$.
 
 ### 5. Convergence Monte Carlo
 
