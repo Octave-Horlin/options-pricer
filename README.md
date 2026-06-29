@@ -32,6 +32,16 @@ La parité call-put $C - P = S - Ke^{-rT}$ est vérifiée analytiquement (erreur
 | $\Theta$ | $\left[-\frac{S n(d_1)\sigma}{2\sqrt{T}} - rKe^{-rT}N(d_2)\right] / 365$ | Érosion temporelle par jour |
 | $\rho$ | $KTe^{-rT}N(d_2) / 100$ | Sensibilité au taux sans risque (+1 pt) |
 
+### Volatilité implicite
+
+La formule Black-Scholes n'a pas de forme fermée pour $\sigma$ : il n'existe pas d'inverse analytique $\sigma = f(C, S, K, T, r)$. La volatilité implicite s'obtient par inversion numérique — on cherche $\hat{\sigma}$ tel que $\text{BS}(\hat{\sigma}) = C_{\text{marché}}$.
+
+L'algorithme utilise **Newton-Raphson** :
+
+$$\sigma_{n+1} = \sigma_n - \frac{\text{BS}(\sigma_n) - C_{\text{marché}}}{\mathcal{V}_{\text{brut}}(\sigma_n)}, \qquad \mathcal{V}_{\text{brut}} = S\, n(d_1)\sqrt{T}$$
+
+Le Vega brut $S\,n(d_1)\sqrt{T}$ est la dérivée exacte de $\text{BS}$ par rapport à $\sigma$, ce qui garantit une convergence quadratique depuis $\sigma_0 = 0.2$. Si le Vega devient trop petit ($< 10^{-10}$) ou si Newton ne converge pas en 100 itérations, l'algorithme bascule automatiquement sur la méthode de **Brent** (`scipy.optimize.brentq`) sur $[10^{-6},\, 5]$. Le solveur retourne `NaN` si le prix de marché est hors des bornes d'arbitrage.
+
 ### Simulation Monte Carlo
 
 Chaque trajectoire suit le mouvement brownien géométrique (GBM) sous $\mathbb{Q}$ :
@@ -102,6 +112,12 @@ L'accélération de l'érosion temporelle à l'approche de la maturité ($T \to 
 
 L'erreur absolue $|MC - BS|$ suit une droite de pente $-0.500$ en log-log, conforme à la décroissance théorique en $1/\sqrt{N}$. Avec 500 000 simulations, l'erreur tombe sous $0.005$ € ($< 0.05\%$). L'erreur standard suit le même régime, validant l'implémentation vectorisée NumPy.
 
+### 6. Volatility Skew — SPY (données réelles yfinance)
+
+![Volatility Smile SPY](figures/07_volatility_smile.png)
+
+Volatilité implicite calculée sur la chaîne d'options SPY réelle (expiry juillet 2026, données live via `yfinance`) en fonction du moneyness $K/S$. La courbe est nettement décroissante : les puts OTM profonds ($K/S \approx 0.67$) cotent une IV de **66 %**, tandis que les calls OTM affichent **~12–14 %**, avec une vol ATM à **15.4 %**. Cette asymétrie — appelée **skew d'indice** ou *smirk* — reflète la prime de risque de krach : depuis 1987, les acheteurs de puts OTM paient une protection contre les baisses brutales, ce qui gonfle leur vol implicite bien au-delà de la vol ATM. C'est une preuve empirique directe que l'hypothèse de **volatilité constante** de Black-Scholes est fausse : un seul $\sigma$ ne peut pas pricer simultanément tous les strikes.
+
 ---
 
 ## Structure du projet
@@ -111,17 +127,20 @@ options-pricer/
 ├── src/
 │   ├── black_scholes.py     # Pricing BS analytique (call, put, parité)
 │   ├── greeks.py            # Greeks analytiques (delta, gamma, vega, theta, rho)
-│   └── monte_carlo.py       # Pricer Monte Carlo vectorisé (GBM, seed reproductible)
+│   ├── monte_carlo.py       # Pricer Monte Carlo vectorisé (GBM, seed reproductible)
+│   └── implied_vol.py       # Solveur de vol implicite (Newton-Raphson + Brent)
 ├── notebooks/
 │   ├── 03_sensibilites.ipynb    # Analyse des sensibilités et surface 3D Plotly
-│   └── 04_monte_carlo.ipynb     # Convergence MC vs BS en log-log
+│   ├── 04_monte_carlo.ipynb     # Convergence MC vs BS en log-log
+│   └── 05_implied_vol.ipynb     # Volatilité implicite et smile SPY (données réelles)
 ├── figures/
 │   ├── 01_price_vs_spot.png
 │   ├── 02_delta_vs_spot.png
 │   ├── 03_gamma_vega_vs_spot.png
 │   ├── 04_theta_vs_maturity.png
 │   ├── 05_call_surface_3d.html  # Surface interactive Plotly
-│   └── 06_mc_convergence.png
+│   ├── 06_mc_convergence.png
+│   └── 07_volatility_smile.png  # Skew SPY — vol implicite vs moneyness
 ├── requirements.txt
 └── README.md
 ```
@@ -143,13 +162,15 @@ Lancer les scripts autonomes :
 python src/black_scholes.py   # Prix BS + vérification parité call-put
 python src/greeks.py          # Tableau des Greeks (pandas)
 python src/monte_carlo.py     # Validation MC vs BS (100 000 simulations)
+python src/implied_vol.py     # Round-trip vol implicite (Newton-Raphson)
 ```
 
 Lancer les notebooks :
 
 ```bash
 jupyter lab
-# Ouvrir notebooks/03_sensibilites.ipynb ou notebooks/04_monte_carlo.ipynb
+# Ouvrir notebooks/03_sensibilites.ipynb, notebooks/04_monte_carlo.ipynb
+# ou notebooks/05_implied_vol.ipynb
 ```
 
 ---
@@ -158,14 +179,13 @@ jupyter lab
 
 **Limites du modèle actuel**
 
-- Volatilité constante (pas de smile ni de skew de volatilité implicite)
+- Volatilité constante : BS ne peut pas reproduire le skew observé avec un seul $\sigma$
 - Options européennes uniquement (pas d'exercice anticipé)
 - Taux sans risque déterministe et constant
 - Absence de dividendes
 
 **Extensions envisagées**
 
-- Volatilité implicite et surface $\sigma(K, T)$ par inversion numérique de BS
 - Options américaines : algorithme de Longstaff-Schwartz (Monte Carlo avec régression)
 - Modèle de Heston : volatilité stochastique avec retour à la moyenne
 - Modèle à sauts de Merton pour capturer les queues épaisses
@@ -174,7 +194,7 @@ jupyter lab
 
 ## Stack technique
 
-Python 3.11 — `numpy` · `scipy` · `pandas` · `matplotlib` · `seaborn` · `plotly` · `jupyter`
+Python 3.11 — `numpy` · `scipy` · `pandas` · `matplotlib` · `seaborn` · `plotly` · `jupyter` · `yfinance`
 
 ---
 
