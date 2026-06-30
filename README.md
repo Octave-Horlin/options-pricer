@@ -40,9 +40,9 @@ finies centrées (écarts $< 10^{-6}$ vs analytique).
 
 | Greek | Formule | Définition |
 |-------|---------|-----------|
-| **Vanna** | $-n(d_1)\,d_2/\sigma$ | $\partial\Delta/\partial\sigma = \partial\mathcal{V}/\partial S$ — sensibilité croisée spot/vol |
-| **Volga** | $S\,n(d_1)\sqrt{T}\,d_1 d_2/\sigma$ | $\partial\mathcal{V}_{\text{brut}}/\partial\sigma$ — convexité par rapport à la vol |
-| **Charm** | $-n(d_1)(2rT - d_2\sigma\sqrt{T})\,/\,(2T\sigma\sqrt{T})$ | $-\partial\Delta/\partial T$ — delta bleed (variation du delta par jour) |
+| **Vanna** | $-n(d_1) d_2/\sigma$ | $\partial\Delta/\partial\sigma = \partial\mathcal{V}/\partial S$ — sensibilité croisée spot/vol |
+| **Volga** | $S n(d_1)\sqrt{T} d_1 d_2/\sigma$ | $\partial\mathcal{V}_{\text{brut}}/\partial\sigma$ — convexité par rapport à la vol |
+| **Charm** | $-n(d_1)(2rT - d_2\sigma\sqrt{T}) / (2T\sigma\sqrt{T})$ | $-\partial\Delta/\partial T$ — delta bleed (variation du delta par jour) |
 
 Vanna et Volga sont identiques pour le call et le put. Charm est analytiquement identique
 (le terme $-1$ de $\Delta_{\text{put}} = N(d_1)-1$ disparaît à la dérivation).
@@ -53,16 +53,16 @@ La formule Black-Scholes n'a pas de forme fermée pour $\sigma$ : il n'existe pa
 
 L'algorithme utilise **Newton-Raphson** :
 
-$$\sigma_{n+1} = \sigma_n - \frac{\text{BS}(\sigma_n) - C_{\text{marché}}}{\mathcal{V}_{\text{brut}}(\sigma_n)}, \qquad \mathcal{V}_{\text{brut}} = S\, n(d_1)\sqrt{T}$$
+$$\sigma_{n+1} = \sigma_n - \frac{\text{BS}(\sigma_n) - C_{\text{marché}}}{\mathcal{V}_{\text{brut}}(\sigma_n)}, \qquad \mathcal{V}_{\text{brut}} = S n(d_1)\sqrt{T}$$
 
-Le Vega brut $S\,n(d_1)\sqrt{T}$ est la dérivée exacte de $\text{BS}$ par rapport à $\sigma$, ce qui garantit une convergence quadratique depuis $\sigma_0 = 0.2$. Si le Vega devient trop petit ($< 10^{-10}$) ou si Newton ne converge pas en 100 itérations, l'algorithme bascule automatiquement sur la méthode de **Brent** (`scipy.optimize.brentq`) sur $[10^{-6},\, 5]$. Le solveur retourne `NaN` si le prix de marché est hors des bornes d'arbitrage.
+Le Vega brut $S n(d_1)\sqrt{T}$ est la dérivée exacte de $\text{BS}$ par rapport à $\sigma$, ce qui garantit une convergence quadratique depuis $\sigma_0 = 0.2$. Si le Vega devient trop petit ($< 10^{-10}$) ou si Newton ne converge pas en 100 itérations, l'algorithme bascule automatiquement sur la méthode de **Brent** (`scipy.optimize.brentq`) sur $[10^{-6}, 5]$. Le solveur retourne `NaN` si le prix de marché est hors des bornes d'arbitrage.
 
 ### Surface de volatilité
 
 Le même solveur `implied_vol` est appliqué sur l'ensemble des maturités disponibles pour
-construire la surface complète $\sigma(K/S,\, T)$. Pour chaque expiration, on calcule les IV
+construire la surface complète $\sigma(K/S, T)$. Pour chaque expiration, on calcule les IV
 strike par strike (puts OTM pour $K/S < 1$, calls OTM pour $K/S \geq 1$), puis on interpole
-sur une grille de moneyness commune $[0.80,\, 1.20]$ à 40 points. Les courbes empilées forment
+sur une grille de moneyness commune $[0.80, 1.20]$ à 40 points. Les courbes empilées forment
 une matrice IV de dimensions $(n_{\text{maturités}} \times 40)$ qui se lit selon deux axes :
 - **Transversal (skew)** : pente négative de l'IV en fonction du strike — queues épaisses et
   prime de krach encodées dans les prix.
