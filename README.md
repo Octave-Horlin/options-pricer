@@ -32,6 +32,21 @@ La parité call-put $C - P = S - Ke^{-rT}$ est vérifiée analytiquement (erreur
 | $\Theta$ | $\left[-\frac{S n(d_1)\sigma}{2\sqrt{T}} - rKe^{-rT}N(d_2)\right] / 365$ | Érosion temporelle par jour |
 | $\rho$ | $KTe^{-rT}N(d_2) / 100$ | Sensibilité au taux sans risque (+1 pt) |
 
+### Greeks de second ordre
+
+Les Greeks de second ordre mesurent la sensibilité des sensibilités — comment le hedge
+lui-même évolue quand les conditions de marché changent. Ils sont validés par différences
+finies centrées (écarts $< 10^{-6}$ vs analytique).
+
+| Greek | Formule | Définition |
+|-------|---------|-----------|
+| **Vanna** | $-n(d_1)\,d_2/\sigma$ | $\partial\Delta/\partial\sigma = \partial\mathcal{V}/\partial S$ — sensibilité croisée spot/vol |
+| **Volga** | $S\,n(d_1)\sqrt{T}\,d_1 d_2/\sigma$ | $\partial\mathcal{V}_{\text{brut}}/\partial\sigma$ — convexité par rapport à la vol |
+| **Charm** | $-n(d_1)(2rT - d_2\sigma\sqrt{T})\,/\,(2T\sigma\sqrt{T})$ | $-\partial\Delta/\partial T$ — delta bleed (variation du delta par jour) |
+
+Vanna et Volga sont identiques pour le call et le put. Charm est analytiquement identique
+(le terme $-1$ de $\Delta_{\text{put}} = N(d_1)-1$ disparaît à la dérivation).
+
 ### Volatilité implicite
 
 La formule Black-Scholes n'a pas de forme fermée pour $\sigma$ : il n'existe pas d'inverse analytique $\sigma = f(C, S, K, T, r)$. La volatilité implicite s'obtient par inversion numérique — on cherche $\hat{\sigma}$ tel que $\text{BS}(\hat{\sigma}) = C_{\text{marché}}$.
@@ -148,6 +163,30 @@ Superposition du skew pour trois maturités (court, moyen, long terme). Le skew 
 
 Vol implicite ATM en fonction de la maturité : 16.1 % à 1 mois, 20.7 % à 12 mois. Cette structure **croissante** (contango de volatilité) caractérise un régime de marché normal — la vol courte terme est ancrée sur la vol réalisée récente, tandis que la vol longue terme intègre une prime d'incertitude supplémentaire. Une structure inversée (court terme > long terme) signalerait un stress aigu ou un événement de marché imminent.
 
+### 10. Vanna vs Spot
+
+![Vanna vs Spot](figures/11_vanna_vs_spot.png)
+
+La Vanna change de signe à l'ATM : négative entre OTM et ATM (le delta call *diminue* quand la vol monte), positive entre ATM et ITM, nulle aux extrêmes quand $n(d_1) \to 0$. Le skew de volatilité implicite est en grande partie du risque Vanna mal couvert : les traders qui achètent des puts OTM sont longs Vanna, ce qui force les market makers à se couvrir en vendant du delta lors des baisses — amplifiant le mouvement.
+
+### 11. Volga vs Spot
+
+![Volga vs Spot](figures/12_volga_vs_spot.png)
+
+Le Volga présente deux bosses symétriques de part et d'autre du strike, et est **nul exactement ATM** ($d_1 \cdot d_2 \approx 0$). Sur les ailes OTM et ITM, le produit $d_1 d_2 > 0$ et le Volga devient positif : les options hors de la monnaie ont une convexité en vol croissante. C'est le lien direct avec le smile — le marché surpaye les options OTM pour couvrir ce coût de Volga, produisant une IV plus élevée que ce que BS prédit.
+
+### 12. Charm vs Spot — delta bleed
+
+![Charm vs Spot](figures/13_charm_vs_spot.png)
+
+Le Charm (delta bleed) quantifie le rééquilibrage du delta imposé par le seul passage du temps, sans mouvement du spot ni de la vol. Les calls ITM voient leur delta progresser vers 1 (Charm > 0) ; les calls OTM voient leur delta régresser vers 0 (Charm < 0). Un trader delta-neutre le vendredi soir devra ajuster sa couverture le lundi matin même si le marché n'a pas bougé.
+
+### 13. Charm vs Maturité — accélération en fin de vie
+
+![Charm vs Maturité](figures/14_charm_vs_maturity.png)
+
+Comme le Theta, le Charm s'intensifie à l'approche de l'expiry : le delta bleed journalier est quasi nul à 2 ans et croît nettement sous les 2–3 mois. Les positions sur options courtes maturités exigent donc un rééquilibrage de delta plus fréquent, générant des coûts de transaction qui s'ajoutent à l'érosion du Theta.
+
 ---
 
 ## Structure du projet
@@ -156,14 +195,15 @@ Vol implicite ATM en fonction de la maturité : 16.1 % à 1 mois, 20.7 % à 12 m
 options-pricer/
 ├── src/
 │   ├── black_scholes.py     # Pricing BS analytique (call, put, parité)
-│   ├── greeks.py            # Greeks analytiques (delta, gamma, vega, theta, rho)
+│   ├── greeks.py            # Greeks 1er ordre (Δ,Γ,V,Θ,ρ) + 2nd ordre (Vanna,Volga,Charm)
 │   ├── monte_carlo.py       # Pricer Monte Carlo vectorisé (GBM, seed reproductible)
 │   └── implied_vol.py       # Solveur de vol implicite (Newton-Raphson + Brent)
 ├── notebooks/
 │   ├── 03_sensibilites.ipynb    # Analyse des sensibilités et surface 3D Plotly
 │   ├── 04_monte_carlo.ipynb     # Convergence MC vs BS en log-log
 │   ├── 05_implied_vol.ipynb     # Volatilité implicite et smile SPY (données réelles)
-│   └── 06_vol_surface.ipynb     # Surface de volatilité 3D multi-maturités
+│   ├── 06_vol_surface.ipynb     # Surface de volatilité 3D multi-maturités
+│   └── 07_second_order_greeks.ipynb  # Vanna, Volga, Charm — intuition et graphes
 ├── figures/
 │   ├── 01_price_vs_spot.png
 │   ├── 02_delta_vs_spot.png
@@ -175,7 +215,11 @@ options-pricer/
 │   ├── 08_vol_surface.html      # Surface 3D interactive Plotly
 │   ├── 08_vol_surface.png       # Surface de vol 3D (capture statique)
 │   ├── 09_skew_by_maturity.png  # Skew superposé pour 3 maturités
-│   └── 10_atm_term_structure.png # Term structure de la vol ATM
+│   ├── 10_atm_term_structure.png # Term structure de la vol ATM
+│   ├── 11_vanna_vs_spot.png     # Vanna vs Spot — sensibilité du delta à la vol
+│   ├── 12_volga_vs_spot.png     # Volga vs Spot — convexité vol, lien avec le smile
+│   ├── 13_charm_vs_spot.png     # Charm vs Spot — delta bleed selon le moneyness
+│   └── 14_charm_vs_maturity.png # Charm vs Maturité — accélération en fin de vie
 ├── requirements.txt
 └── README.md
 ```
@@ -204,8 +248,8 @@ Lancer les notebooks :
 
 ```bash
 jupyter lab
-# Ouvrir notebooks/03_sensibilites.ipynb, notebooks/04_monte_carlo.ipynb,
-# notebooks/05_implied_vol.ipynb ou notebooks/06_vol_surface.ipynb
+# Ouvrir notebooks/03_sensibilites.ipynb, 04_monte_carlo.ipynb,
+# 05_implied_vol.ipynb, 06_vol_surface.ipynb ou 07_second_order_greeks.ipynb
 ```
 
 ---
@@ -222,7 +266,7 @@ jupyter lab
 **Extensions envisagées**
 
 - Options américaines : algorithme de Longstaff-Schwartz (Monte Carlo avec régression)
-- Modèle de Heston : volatilité stochastique avec retour à la moyenne
+- Modèle de Heston : volatilité stochastique avec retour à la moyenne ($dV = \kappa(\theta - V)dt + \xi\sqrt{V}dW$)
 - Modèle à sauts de Merton pour capturer les queues épaisses
 
 ---
