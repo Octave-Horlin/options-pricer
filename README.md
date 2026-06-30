@@ -42,6 +42,18 @@ $$\sigma_{n+1} = \sigma_n - \frac{\text{BS}(\sigma_n) - C_{\text{marché}}}{\mat
 
 Le Vega brut $S\,n(d_1)\sqrt{T}$ est la dérivée exacte de $\text{BS}$ par rapport à $\sigma$, ce qui garantit une convergence quadratique depuis $\sigma_0 = 0.2$. Si le Vega devient trop petit ($< 10^{-10}$) ou si Newton ne converge pas en 100 itérations, l'algorithme bascule automatiquement sur la méthode de **Brent** (`scipy.optimize.brentq`) sur $[10^{-6},\, 5]$. Le solveur retourne `NaN` si le prix de marché est hors des bornes d'arbitrage.
 
+### Surface de volatilité
+
+Le même solveur `implied_vol` est appliqué sur l'ensemble des maturités disponibles pour
+construire la surface complète $\sigma(K/S,\, T)$. Pour chaque expiration, on calcule les IV
+strike par strike (puts OTM pour $K/S < 1$, calls OTM pour $K/S \geq 1$), puis on interpole
+sur une grille de moneyness commune $[0.80,\, 1.20]$ à 40 points. Les courbes empilées forment
+une matrice IV de dimensions $(n_{\text{maturités}} \times 40)$ qui se lit selon deux axes :
+- **Transversal (skew)** : pente négative de l'IV en fonction du strike — queues épaisses et
+  prime de krach encodées dans les prix.
+- **Longitudinal (term structure)** : évolution de la vol ATM avec $T$ — structure croissante
+  en régime normal, inversée en régime de stress.
+
 ### Simulation Monte Carlo
 
 Chaque trajectoire suit le mouvement brownien géométrique (GBM) sous $\mathbb{Q}$ :
@@ -118,6 +130,24 @@ L'erreur absolue $|MC - BS|$ suit une droite de pente $-0.500$ en log-log, confo
 
 Volatilité implicite calculée sur la chaîne d'options SPY réelle (expiry juillet 2026, données live via `yfinance`) en fonction du moneyness $K/S$. La courbe est nettement décroissante : les puts OTM profonds ($K/S \approx 0.67$) cotent une IV de **66 %**, tandis que les calls OTM affichent **~12–14 %**, avec une vol ATM à **15.4 %**. Cette asymétrie — appelée **skew d'indice** ou *smirk* — reflète la prime de risque de krach : depuis 1987, les acheteurs de puts OTM paient une protection contre les baisses brutales, ce qui gonfle leur vol implicite bien au-delà de la vol ATM. C'est une preuve empirique directe que l'hypothèse de **volatilité constante** de Black-Scholes est fausse : un seul $\sigma$ ne peut pas pricer simultanément tous les strikes.
 
+### 7. Surface de volatilité implicite 3D — SPY
+
+![Surface de volatilité 3D](figures/08_vol_surface.png)
+
+Carte complète du risque de volatilité sur SPY : 6 maturités (1 mois à 12 mois) × 40 points de moneyness, IV entre 12 % et 37 %. La surface révèle simultanément le skew d'indice (pente négative selon $K/S$) et la term structure (progression selon $T$) ; la version interactive `figures/08_vol_surface.html` permet de la faire pivoter librement.
+
+### 8. Skew par maturité — aplatissement avec T
+
+![Skew par maturité](figures/09_skew_by_maturity.png)
+
+Superposition du skew pour trois maturités (court, moyen, long terme). Le skew s'aplatit à mesure que $T$ augmente : sur un horizon court, le marché anticipe des chocs brusques qui gonflent fortement la prime des puts OTM ; sur un horizon long, la variance s'homogénéise et l'écart entre puts OTM et calls OTM se resserre.
+
+### 9. Term structure ATM — régime de marché normal
+
+![Term structure ATM](figures/10_atm_term_structure.png)
+
+Vol implicite ATM en fonction de la maturité : 16.1 % à 1 mois, 20.7 % à 12 mois. Cette structure **croissante** (contango de volatilité) caractérise un régime de marché normal — la vol courte terme est ancrée sur la vol réalisée récente, tandis que la vol longue terme intègre une prime d'incertitude supplémentaire. Une structure inversée (court terme > long terme) signalerait un stress aigu ou un événement de marché imminent.
+
 ---
 
 ## Structure du projet
@@ -132,7 +162,8 @@ options-pricer/
 ├── notebooks/
 │   ├── 03_sensibilites.ipynb    # Analyse des sensibilités et surface 3D Plotly
 │   ├── 04_monte_carlo.ipynb     # Convergence MC vs BS en log-log
-│   └── 05_implied_vol.ipynb     # Volatilité implicite et smile SPY (données réelles)
+│   ├── 05_implied_vol.ipynb     # Volatilité implicite et smile SPY (données réelles)
+│   └── 06_vol_surface.ipynb     # Surface de volatilité 3D multi-maturités
 ├── figures/
 │   ├── 01_price_vs_spot.png
 │   ├── 02_delta_vs_spot.png
@@ -140,7 +171,11 @@ options-pricer/
 │   ├── 04_theta_vs_maturity.png
 │   ├── 05_call_surface_3d.html  # Surface interactive Plotly
 │   ├── 06_mc_convergence.png
-│   └── 07_volatility_smile.png  # Skew SPY — vol implicite vs moneyness
+│   ├── 07_volatility_smile.png  # Skew SPY — vol implicite vs moneyness
+│   ├── 08_vol_surface.html      # Surface 3D interactive Plotly
+│   ├── 08_vol_surface.png       # Surface de vol 3D (capture statique)
+│   ├── 09_skew_by_maturity.png  # Skew superposé pour 3 maturités
+│   └── 10_atm_term_structure.png # Term structure de la vol ATM
 ├── requirements.txt
 └── README.md
 ```
@@ -169,8 +204,8 @@ Lancer les notebooks :
 
 ```bash
 jupyter lab
-# Ouvrir notebooks/03_sensibilites.ipynb, notebooks/04_monte_carlo.ipynb
-# ou notebooks/05_implied_vol.ipynb
+# Ouvrir notebooks/03_sensibilites.ipynb, notebooks/04_monte_carlo.ipynb,
+# notebooks/05_implied_vol.ipynb ou notebooks/06_vol_surface.ipynb
 ```
 
 ---
@@ -194,7 +229,7 @@ jupyter lab
 
 ## Stack technique
 
-Python 3.11 — `numpy` · `scipy` · `pandas` · `matplotlib` · `seaborn` · `plotly` · `jupyter` · `yfinance`
+Python 3.11 — `numpy` · `scipy` · `pandas` · `matplotlib` · `seaborn` · `plotly` · `jupyter` · `yfinance` · `kaleido`
 
 ---
 
