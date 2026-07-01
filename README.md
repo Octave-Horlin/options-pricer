@@ -1,12 +1,14 @@
 # Options Pricer & Greeks Analyzer
 
-Pricing analytique et Monte Carlo d'options européennes Black-Scholes, avec calcul des Greeks et analyse complète des sensibilités.
+Pricing analytique et Monte Carlo d'options européennes Black-Scholes, calcul des Greeks, analyse de la surface de volatilité implicite et simulation de la couverture delta-neutre.
 
 ---
 
 ## Objectif
 
-Ce projet implémente de bout en bout la valorisation d'options européennes vanilles sous le modèle Black-Scholes : prix analytiques (call et put), Greeks du premier et second ordre, analyse des sensibilités aux paramètres de marché, et validation indépendante par simulation Monte Carlo. Il constitue une base de travail pour l'étude du delta-hedging, de la gestion du risque de portefeuille d'options et de la convergence des méthodes numériques.
+Ce projet implémente de bout en bout la valorisation d'options européennes vanilles sous le modèle Black-Scholes : prix analytiques (call et put), Greeks du premier et second ordre, analyse des sensibilités aux paramètres de marché, validation indépendante par simulation Monte Carlo, inversion numérique de la volatilité implicite sur données réelles (SPY via yfinance), et simulation de la couverture delta-neutre avec décomposition du P&L.
+
+Il couvre la chaîne complète **pricing → Greeks → volatilité implicite → couverture dynamique**, du modèle théorique à sa mise en œuvre sur données réelles et à la simulation d'une stratégie de réplication delta-neutre.
 
 ---
 
@@ -76,6 +78,18 @@ Chaque trajectoire suit le mouvement brownien géométrique (GBM) sous $\mathbb{
 $$S_T = S_0 \exp\!\left[\left(r - \frac{\sigma^2}{2}\right)T + \sigma\sqrt{T} Z\right], \quad Z \sim \mathcal{N}(0,1)$$
 
 Le prix est estimé par $\hat{C} = e^{-rT} \mathbb{E}^{\mathbb{Q}}[\max(S_T - K, 0)]$. L'erreur standard décroît en $1/\sqrt{N}$ (théorème central limite), vérifiée empiriquement par régression log-log.
+
+### Couverture dynamique & P&L attribution
+
+La couverture delta-neutre d'un call vendu est simulée sur une trajectoire GBM discrétisée en $n$ pas. À chaque rebalancement, la position en actions est ajustée pour annuler l'exposition directionnelle ; le cash résiduel court au taux $r$.
+
+Le P&L incrémental se décompose par développement de Taylor :
+
+$$\text{P\&L}_{dt} \approx \underbrace{-\tfrac{1}{2}\Gamma\,(dS)^2}_{\text{coût gamma}} + \underbrace{|\Theta_{\text{ann}}|\,dt}_{\text{gain theta}} + \underbrace{r \cdot \text{cash} \cdot dt}_{\text{intérêts}} + \underbrace{\tfrac{1}{2}\Gamma S^2(\sigma_{\text{réal}}^2 - \sigma_{\text{impl}}^2)\,dt}_{\text{P\&L vol (résidu)}}$$
+
+Quand $\sigma_{\text{réal}} = \sigma_{\text{impl}}$, l'équation de Black-Scholes garantit que les termes gamma et theta se compensent en espérance (P&L $\approx$ 0 en espérance sur de nombreux chemins). Sur un chemin particulier, le résidu reflète l'écart entre la variance réalisée et la variance implicite.
+
+L'erreur de réplication avec rebalancement discret scale comme $\sqrt{T/n}$ : la couverture quotidienne ($n = 252$) produit une distribution de P&L nettement plus resserrée que l'hebdomadaire ($n = 52$), avec un ratio empirique $\approx \sqrt{252/52} \approx 2.2$.
 
 ---
 
@@ -187,6 +201,30 @@ Le Charm (delta bleed) quantifie le rééquilibrage du delta imposé par le seul
 
 Comme le Theta, le Charm s'intensifie à l'approche de l'expiry : le delta bleed journalier est quasi nul à 2 ans et croît nettement sous les 2–3 mois. Les positions sur options courtes maturités exigent donc un rééquilibrage de delta plus fréquent, générant des coûts de transaction qui s'ajoutent à l'érosion du Theta.
 
+### 14. Trajectoire spot & delta — couverture quotidienne
+
+![Trajectoire delta-hedge](figures/15_delta_hedge_trajectory.png)
+
+Évolution simultanée du spot (axe gauche) et du delta du call vendu (axe droit) sur 252 jours de couverture. Le delta suit le moneyness de l'option et converge progressivement vers 0 à mesure que le spot s'éloigne sous le strike — le call expire hors de la monnaie ($S_T \approx 88$). Chaque variation de delta correspond à un rebalancement de la position en actions.
+
+### 15. Attribution du P&L — waterfall (short Gamma / long Theta)
+
+![Attribution P&L waterfall](figures/16_pnl_attribution.png)
+
+Décomposition Taylor du P&L sur la trajectoire de référence (seed 42) : le gain Theta (+6.72 \$) dépasse le coût Gamma (−4.13 \$) car la vol réalisée (18.7 %) est inférieure à la vol implicite (20 %) sur ce chemin — la position short vol est profitable. Le terme d'intérêts (−1.83 \$) reflète le coût de financement de la couverture. Le résidu Taylor (−0.05 \$) confirme la précision du développement au second ordre.
+
+### 16. Distribution du P&L : quotidien vs hebdomadaire (1 000 simulations)
+
+![Fréquence de rebalancement](figures/17_hedge_frequency.png)
+
+La couverture quotidienne ($n = 252$, std ≈ 0.45 \$) est nettement plus resserrée que la couverture hebdomadaire ($n = 52$, std ≈ 1.0 \$). Le ratio empirique std\_hebdo / std\_quotidien $\approx 2.15$ est conforme à la décroissance théorique en $\sqrt{T/n} = \sqrt{252/52} \approx 2.20$. Ce compromis est au cœur de la pratique : une fréquence de rebalancement plus élevée réduit l'erreur de couverture mais augmente les coûts de transaction.
+
+### 17. P&L moyen du vendeur vs vol réalisée
+
+![P&L vs vol réalisée](figures/18_vol_mismatch_pnl.png)
+
+Le P&L moyen du vendeur est une fonction linéaire décroissante de $\sigma_{\text{réal}}$ (500 chemins par point, $\sigma_{\text{impl}} = 20\%$ fixé). Le point mort se trouve exactement à $\sigma_{\text{réal}} = \sigma_{\text{impl}}$ : le vendeur gagne si le marché réalise moins de volatilité que l'implicite, et perd dans le cas contraire. En espérance : $\mathbb{E}[\text{P\&L}] \approx -\frac{1}{2}\int_0^T \Gamma_t S_t^2 (\sigma_{\text{réal}}^2 - \sigma_{\text{impl}}^2)\,dt$ — le vendeur d'option est fondamentalement un **vendeur de variance**.
+
 ---
 
 ## Structure du projet
@@ -197,29 +235,35 @@ options-pricer/
 │   ├── black_scholes.py     # Pricing BS analytique (call, put, parité)
 │   ├── greeks.py            # Greeks 1er ordre (Δ,Γ,V,Θ,ρ) + 2nd ordre (Vanna,Volga,Charm)
 │   ├── monte_carlo.py       # Pricer Monte Carlo vectorisé (GBM, seed reproductible)
-│   └── implied_vol.py       # Solveur de vol implicite (Newton-Raphson + Brent)
+│   ├── implied_vol.py       # Solveur de vol implicite (Newton-Raphson + Brent)
+│   └── delta_hedge.py       # Simulation couverture delta-neutre + P&L attribution
 ├── notebooks/
-│   ├── 03_sensibilites.ipynb    # Analyse des sensibilités et surface 3D Plotly
-│   ├── 04_monte_carlo.ipynb     # Convergence MC vs BS en log-log
-│   ├── 05_implied_vol.ipynb     # Volatilité implicite et smile SPY (données réelles)
-│   ├── 06_vol_surface.ipynb     # Surface de volatilité 3D multi-maturités
-│   └── 07_second_order_greeks.ipynb  # Vanna, Volga, Charm — intuition et graphes
+│   ├── 03_sensibilites.ipynb         # Analyse des sensibilités et surface 3D Plotly
+│   ├── 04_monte_carlo.ipynb          # Convergence MC vs BS en log-log
+│   ├── 05_implied_vol.ipynb          # Volatilité implicite et smile SPY (données réelles)
+│   ├── 06_vol_surface.ipynb          # Surface de volatilité 3D multi-maturités
+│   ├── 07_second_order_greeks.ipynb  # Vanna, Volga, Charm — intuition et graphes
+│   └── 08_delta_hedging.ipynb        # Couverture dynamique, P&L attribution, vol mismatch
 ├── figures/
 │   ├── 01_price_vs_spot.png
 │   ├── 02_delta_vs_spot.png
 │   ├── 03_gamma_vega_vs_spot.png
 │   ├── 04_theta_vs_maturity.png
-│   ├── 05_call_surface_3d.html  # Surface interactive Plotly
+│   ├── 05_call_surface_3d.html       # Surface interactive Plotly
 │   ├── 06_mc_convergence.png
-│   ├── 07_volatility_smile.png  # Skew SPY — vol implicite vs moneyness
-│   ├── 08_vol_surface.html      # Surface 3D interactive Plotly
-│   ├── 08_vol_surface.png       # Surface de vol 3D (capture statique)
-│   ├── 09_skew_by_maturity.png  # Skew superposé pour 3 maturités
-│   ├── 10_atm_term_structure.png # Term structure de la vol ATM
-│   ├── 11_vanna_vs_spot.png     # Vanna vs Spot — sensibilité du delta à la vol
-│   ├── 12_volga_vs_spot.png     # Volga vs Spot — convexité vol, lien avec le smile
-│   ├── 13_charm_vs_spot.png     # Charm vs Spot — delta bleed selon le moneyness
-│   └── 14_charm_vs_maturity.png # Charm vs Maturité — accélération en fin de vie
+│   ├── 07_volatility_smile.png       # Skew SPY — vol implicite vs moneyness
+│   ├── 08_vol_surface.html           # Surface 3D interactive Plotly
+│   ├── 08_vol_surface.png            # Surface de vol 3D (capture statique)
+│   ├── 09_skew_by_maturity.png       # Skew superposé pour 3 maturités
+│   ├── 10_atm_term_structure.png     # Term structure de la vol ATM
+│   ├── 11_vanna_vs_spot.png          # Vanna vs Spot — sensibilité du delta à la vol
+│   ├── 12_volga_vs_spot.png          # Volga vs Spot — convexité vol, lien avec le smile
+│   ├── 13_charm_vs_spot.png          # Charm vs Spot — delta bleed selon le moneyness
+│   ├── 14_charm_vs_maturity.png      # Charm vs Maturité — accélération en fin de vie
+│   ├── 15_delta_hedge_trajectory.png # Spot & delta sur trajectoire couverte
+│   ├── 16_pnl_attribution.png        # Waterfall Gamma/Theta/intérêts — P&L attribution
+│   ├── 17_hedge_frequency.png        # Distribution P&L quotidien vs hebdomadaire
+│   └── 18_vol_mismatch_pnl.png       # P&L moyen vendeur vs σ_réal (point mort σ_impl)
 ├── requirements.txt
 └── README.md
 ```
@@ -242,6 +286,7 @@ python src/black_scholes.py   # Prix BS + vérification parité call-put
 python src/greeks.py          # Tableau des Greeks (pandas)
 python src/monte_carlo.py     # Validation MC vs BS (100 000 simulations)
 python src/implied_vol.py     # Round-trip vol implicite (Newton-Raphson)
+python src/delta_hedge.py     # Simulation delta-hedge + P&L attribution (252 pas)
 ```
 
 Lancer les notebooks :
@@ -249,7 +294,8 @@ Lancer les notebooks :
 ```bash
 jupyter lab
 # Ouvrir notebooks/03_sensibilites.ipynb, 04_monte_carlo.ipynb,
-# 05_implied_vol.ipynb, 06_vol_surface.ipynb ou 07_second_order_greeks.ipynb
+# 05_implied_vol.ipynb, 06_vol_surface.ipynb,
+# 07_second_order_greeks.ipynb ou 08_delta_hedging.ipynb
 ```
 
 ---
