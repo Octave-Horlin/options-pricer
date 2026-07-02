@@ -85,7 +85,7 @@ La couverture delta-neutre d'un call vendu est simulée sur une trajectoire GBM 
 
 Le P&L incrémental se décompose par développement de Taylor :
 
-$$\text{P\&L}_{dt} \approx \underbrace{-\tfrac{1}{2}\Gamma\,(dS)^2}_{\text{coût gamma}} + \underbrace{|\Theta_{\text{ann}}|\,dt}_{\text{gain theta}} + \underbrace{r \cdot \text{cash} \cdot dt}_{\text{intérêts}} + \underbrace{\tfrac{1}{2}\Gamma S^2(\sigma_{\text{réal}}^2 - \sigma_{\text{impl}}^2)\,dt}_{\text{P\&L vol (résidu)}}$$
+$$\text{PnL}_{dt} \approx \underbrace{-\tfrac{1}{2}\Gamma\,(dS)^2}_{\text{coût gamma}} + \underbrace{|\Theta_{\text{ann}}|\,dt}_{\text{gain theta}} + \underbrace{r \cdot \text{cash} \cdot dt}_{\text{intérêts}} + \underbrace{\tfrac{1}{2}\Gamma S^2(\sigma_{\text{réal}}^2 - \sigma_{\text{impl}}^2)\,dt}_{\text{PnL vol (résidu)}}$$
 
 Quand $\sigma_{\text{réal}} = \sigma_{\text{impl}}$, l'équation de Black-Scholes garantit que les termes gamma et theta se compensent en espérance (P&L $\approx$ 0 en espérance sur de nombreux chemins). Sur un chemin particulier, le résidu reflète l'écart entre la variance réalisée et la variance implicite.
 
@@ -211,19 +211,19 @@ Comme le Theta, le Charm s'intensifie à l'approche de l'expiry : le delta bleed
 
 ![Attribution P&L waterfall](figures/16_pnl_attribution.png)
 
-Décomposition Taylor du P&L sur la trajectoire de référence (seed 42) : le gain Theta (+6.72 \$) dépasse le coût Gamma (−4.13 \$) car la vol réalisée (18.7 %) est inférieure à la vol implicite (20 %) sur ce chemin — la position short vol est profitable. Le terme d'intérêts (−1.83 \$) reflète le coût de financement de la couverture. Le résidu Taylor (−0.05 \$) confirme la précision du développement au second ordre.
+Décomposition Taylor du P&L sur la trajectoire de référence (seed 42) : le gain Theta (+6.72) dépasse le coût Gamma (−4.13) car la vol réalisée (18.7 %) est inférieure à la vol implicite (20 %) sur ce chemin — la position short vol est profitable. Le terme d'intérêts (−1.83) reflète le coût de financement de la couverture. Le résidu Taylor (−0.05) confirme la précision du développement au second ordre.
 
 ### 16. Distribution du P&L : quotidien vs hebdomadaire (1 000 simulations)
 
 ![Fréquence de rebalancement](figures/17_hedge_frequency.png)
 
-La couverture quotidienne ($n = 252$, std ≈ 0.45 \$) est nettement plus resserrée que la couverture hebdomadaire ($n = 52$, std ≈ 1.0 \$). Le ratio empirique std\_hebdo / std\_quotidien $\approx 2.15$ est conforme à la décroissance théorique en $\sqrt{T/n} = \sqrt{252/52} \approx 2.20$. Ce compromis est au cœur de la pratique : une fréquence de rebalancement plus élevée réduit l'erreur de couverture mais augmente les coûts de transaction.
+La couverture quotidienne ($n = 252$, std ≈ 0.45) est nettement plus resserrée que la couverture hebdomadaire ($n = 52$, std ≈ 1.0). Le ratio empirique std\_hebdo / std\_quotidien $\approx 2.15$ est conforme à la décroissance théorique en $\sqrt{T/n} = \sqrt{252/52} \approx 2.20$. Ce compromis est au cœur de la pratique : une fréquence de rebalancement plus élevée réduit l'erreur de couverture mais augmente les coûts de transaction.
 
 ### 17. P&L moyen du vendeur vs vol réalisée
 
 ![P&L vs vol réalisée](figures/18_vol_mismatch_pnl.png)
 
-Le P&L moyen du vendeur est une fonction linéaire décroissante de $\sigma_{\text{réal}}$ (500 chemins par point, $\sigma_{\text{impl}} = 20\%$ fixé). Le point mort se trouve exactement à $\sigma_{\text{réal}} = \sigma_{\text{impl}}$ : le vendeur gagne si le marché réalise moins de volatilité que l'implicite, et perd dans le cas contraire. En espérance : $\mathbb{E}[\text{P\&L}] \approx -\frac{1}{2}\int_0^T \Gamma_t S_t^2 (\sigma_{\text{réal}}^2 - \sigma_{\text{impl}}^2)\,dt$ — le vendeur d'option est fondamentalement un **vendeur de variance**.
+Le P&L moyen du vendeur est une fonction linéaire décroissante de $\sigma_{\text{réal}}$ (500 chemins par point, $\sigma_{\text{impl}} = 20\%$ fixé). Le point mort se trouve exactement à $\sigma_{\text{réal}} = \sigma_{\text{impl}}$ : le vendeur gagne si le marché réalise moins de volatilité que l'implicite, et perd dans le cas contraire. En espérance : $\mathbb{E}[\text{PnL}] \approx -\frac{1}{2}\int_0^T \Gamma_t S_t^2 (\sigma_{\text{réal}}^2 - \sigma_{\text{impl}}^2)\,dt$ — le vendeur d'option est fondamentalement un **vendeur de variance**.
 
 ---
 
