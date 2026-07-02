@@ -10,6 +10,8 @@ Ce projet implémente de bout en bout la valorisation d'options européennes van
 
 Il couvre la chaîne complète **pricing → Greeks → volatilité implicite → couverture dynamique**, du modèle théorique à sa mise en œuvre sur données réelles et à la simulation d'une stratégie de réplication delta-neutre.
 
+> **Lecture rapide** : [`notebooks/00_summary.ipynb`](notebooks/00_summary.ipynb) résume l'ensemble du projet (arc narratif, figures clés, résultats chiffrés) en 5 minutes.
+
 ---
 
 ## Méthodes
@@ -238,6 +240,7 @@ options-pricer/
 │   ├── implied_vol.py       # Solveur de vol implicite (Newton-Raphson + Brent)
 │   └── delta_hedge.py       # Simulation couverture delta-neutre + P&L attribution
 ├── notebooks/
+│   ├── 00_summary.ipynb               # Synthèse du projet — lecture en 5 minutes
 │   ├── 03_sensibilites.ipynb         # Analyse des sensibilités et surface 3D Plotly
 │   ├── 04_monte_carlo.ipynb          # Convergence MC vs BS en log-log
 │   ├── 05_implied_vol.ipynb          # Volatilité implicite et smile SPY (données réelles)
@@ -293,9 +296,20 @@ Lancer les notebooks :
 
 ```bash
 jupyter lab
-# Ouvrir notebooks/03_sensibilites.ipynb, 04_monte_carlo.ipynb,
+# Ouvrir notebooks/00_summary.ipynb pour la synthèse, ou en détail :
+# 03_sensibilites.ipynb, 04_monte_carlo.ipynb,
 # 05_implied_vol.ipynb, 06_vol_surface.ipynb,
 # 07_second_order_greeks.ipynb ou 08_delta_hedging.ipynb
+```
+
+---
+
+## Tests
+
+Chaque brique (pricing, Greeks, vol implicite, Monte Carlo, delta-hedging) est couverte par une suite **pytest** de **84 tests** — parité call-put, différences finies sur les Greeks de second ordre, round-trip du solveur de vol implicite, intervalle de confiance Monte Carlo, cohérence de la couverture delta-neutre.
+
+```bash
+pytest tests/ -v
 ```
 
 ---
